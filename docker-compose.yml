@@ -1,0 +1,43 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: syndicate
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/syndicate?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-please-use-openssl-rand-base64-32}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-نقابة الأطباء}
+      UPLOAD_DRIVER: local
+      UPLOAD_LOCAL_DIR: public/uploads
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/public/uploads
+    # Run migrations + start
+    command: sh -c "npx prisma db push && npm run start"
+
+volumes:
+  db-data:
+  uploads:
